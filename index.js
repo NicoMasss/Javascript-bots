@@ -1,6 +1,5 @@
 const axios = require("axios");
 
-const codigoTabelaReferencia = 300;
 const codigoTipoVeiculo = 1;
 
 // Função para adicionar um delay (evita erro 429)
@@ -8,8 +7,14 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function pegaMes() {
+    const response = await axios.post("https://veiculos.fipe.org.br/api/veiculos//ConsultarTabelaDeReferencia")
+        
+    return response.data[0].Codigo
+}
+
 // Busca o valor do carro na FIPE
-async function dadosCarro(modeloCodigo, marcaId, codigoTipoCombustivel, anoModelo) {
+async function dadosCarro(codigoTabelaReferencia, modeloCodigo, marcaId, codigoTipoCombustivel, anoModelo) {
     await delay(500); // Delay fixo entre requisições
     const response = await axios.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarValorComTodosParametros", {
         codigoTabelaReferencia,
@@ -25,7 +30,7 @@ async function dadosCarro(modeloCodigo, marcaId, codigoTipoCombustivel, anoModel
 }
 
 // Busca todas as marcas de veículos
-async function marcaCarro() {
+async function marcaCarro(codigoTabelaReferencia) {
     await delay(300); // Pequeno delay antes da requisição
     const response = await axios.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarMarcas", {
         codigoTabelaReferencia,
@@ -35,7 +40,7 @@ async function marcaCarro() {
 }
 
 // Busca os modelos de uma marca específica
-async function modeloCarro(marcaId) {
+async function modeloCarro(codigoTabelaReferencia, marcaId) {
     await delay(300);
     const response = await axios.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarModelos", {
         codigoTabelaReferencia,
@@ -46,7 +51,7 @@ async function modeloCarro(marcaId) {
 }
 
 // Busca os anos disponíveis para um modelo
-async function recebeAnoModelo(marcaId, modelosCodigo) {
+async function recebeAnoModelo(codigoTabelaReferencia, marcaId, modelosCodigo) {
     await delay(300);
     const response = await axios.post("https://veiculos.fipe.org.br/api/veiculos/ConsultarAnoModelo", {
         codigoTabelaReferencia,
@@ -77,21 +82,23 @@ async function processarEmLotes(itens, funcao, delayEntreLotes = 1000) {
 // Função principal
 async function obterDadosMarcasModelos() {
     try {
+        const codigoTabelaReferencia = await pegaMes()
+
         console.log("Buscando marcas...");
-        const marcas = await marcaCarro();
+        const marcas = await marcaCarro(codigoTabelaReferencia);
         const objDados = [];
 
         for (const marca of marcas) {
             const marcaId = marca.Value;
             console.log(`Buscando modelos da marca: ${marca.Label}`);
 
-            const modelosModelos = await modeloCarro(marcaId);
+            const modelosModelos = await modeloCarro(codigoTabelaReferencia, marcaId);
             const loteModelos = modelosModelos.slice(0, 3); // Testando com 3 modelos
 
             // Busca anos modelo em lotes
             const anosModelosResultados = await processarEmLotes(loteModelos, async (modelo) => {
                 const modelosCodigo = modelo.Value;
-                return { modelo, anosModelo: await recebeAnoModelo(marcaId, modelosCodigo) };
+                return { modelo, anosModelo: await recebeAnoModelo(codigoTabelaReferencia, marcaId, modelosCodigo) };
             });
 
             // Busca os valores dos carros em lotes
@@ -102,7 +109,7 @@ async function obterDadosMarcasModelos() {
                 const resultadosValores = await processarEmLotes(anosModelo, async (ano) => {
                     const [anoModelo, codigoTipoCombustivel] = ano.Value.split("-");
                     console.log(`Buscando preço para: ${marca.Label} ${modeloNome} ${anoModelo}`);
-                    const valorCarro = await dadosCarro(modelosCodigo, marcaId, codigoTipoCombustivel, anoModelo);
+                    const valorCarro = await dadosCarro(codigoTabelaReferencia, modelosCodigo, marcaId, codigoTipoCombustivel, anoModelo);
 
                     return {
                         marca: marca.Label,
@@ -113,7 +120,7 @@ async function obterDadosMarcasModelos() {
                     };
                 }, 1000); // Tempo entre requisições de valores
 
-                objDados.push(...resultadosValores);
+                objDados.push(resultadosValores);
             }
         }
 
@@ -122,6 +129,7 @@ async function obterDadosMarcasModelos() {
         console.error(" Ocorreu um erro:", error);
     }
 }
+
 
 obterDadosMarcasModelos();
  
