@@ -26,7 +26,7 @@ async function dadosCarro(codigoTabelaReferencia, modeloCodigo, marcaId, codigoT
         tipoVeiculo: "carro",
         tipoConsulta: "tradicional"
     });
-    return response.data.Valor;
+    return response.data;
 }
 
 // Busca todas as marcas de veículos
@@ -109,12 +109,14 @@ async function obterDadosMarcasModelos() {
                 const resultadosValores = await processarEmLotes(anosModelo, async (ano) => {
                     const [anoModelo, codigoTipoCombustivel] = ano.Value.split("-");
                     console.log(`Buscando preço para: ${marca.Label} ${modeloNome} ${anoModelo}`);
-                    const valorCarro = await dadosCarro(codigoTabelaReferencia, modelosCodigo, marcaId, codigoTipoCombustivel, anoModelo);
+                    const dadosCarroFinal = await dadosCarro(codigoTabelaReferencia, modelosCodigo, marcaId, codigoTipoCombustivel, anoModelo);
+                    const valorCarro =  dadosCarroFinal.Valor
+                    const codigoFipe =  dadosCarroFinal.CodigoFipe
 
                     return {
                         marca: marca.Label,
                         modelo: modeloNome,
-                        fipe: modelosCodigo,
+                        fipe: codigoFipe,
                         ano: anoModelo,
                         valor: valorCarro
                     };
